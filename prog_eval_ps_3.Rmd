@@ -1,0 +1,203 @@
+---
+title: "Program Evaluation Problem Set 3"
+author: "Hye-Min Jung"
+date: "5/21/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+#tinytex::install_tinytex()
+library(tinytex)
+library(latex2exp)
+library(rmutil)
+```
+
+```{r, include=FALSE}
+cal_raw <- read.csv("ps3_data.csv")
+dim(cal_raw)
+head(cal_raw)
+summary(cal_raw)
+```
+
+## 1. 
+
+* **The most ideal experiment would be to run randomized controlled trial, to answer the causal effect of hours of outages on kW amount of PV installed at the household level, because under randomization, we can easily estimate the impact of treatment, ATE simply from the difference in means between treated and control households.**
+
+* Define: $D_{i} \in\{0,1\}$ as the blakcout indicator for household i
+  + when household i is treated, $D_{i}=1$
+  + when household i is not treated, $D_{i}=0$
+* Define: $Y_{i}\left(D_{i}\right)$ as the kW of solar PV installed as a function of $D_{i}$ 
+  + when household i is treated, we observe kW of solar PV installed $Y(1)$
+  + when household i is not treated, we observe kW of solar PV installed $Y(0)$
+* Then, the impact of blackouts on kW of solar PV adopted by housdeholds is: $\tau_{i}=Y_{i}(1)-Y_{i}(0)$
+
+* To put it simply in words, impact of treatment is a parameter that measures 'What is the outcome of power shut off, compared to the outcomes that we would have observed without the power shut off?' 
+  + Impacts is 'changes in outcomes caused by the policy' whereas, outcomes is 'things that we could “potentially” observe'. 
+  + We need to consider all possible outcomes we could have observed, spans both actual and alternative programs, to explain the impact of treatment. 
+
+* **However, since shutting off electricity for randomly selected households would cause lot of problems, a state won't be able to conduct RCT. Therefore, we would like to turn to alternative method, selection on observable design.**
+
+  + For this design, we will assume that, conditional on observables and treatment assignment is independent of potential outcomes.
+  + In other words, $\left(Y_{i}(1), Y_{i}(0)\right) \perp D_{i} | X_{i}$.
+  + This means, once we control for covariates, we've eliminated selection and treatment is as good as random.
+  + Also, we will have to assume common support, $0<\operatorname{Pr}\left(D_{i}=1 | X_{i}=x\right)<1$.
+  + This means, the probability that $D_{i}=1$ for all levels of $x_{i}$ is between 0 and 1.
+  + There are both treated and untreated units for each level of X.
+  
+* And try to estimate the impact of treatment, ATE: $\tau^{A T E}=E\left[Y_{i}(1)\right]-E\left[Y_{i}(0)\right]$.
+  + However, all we can acutally see is $E\left[Y_{i}(1) | D_{i}=1\right]$ and $E\left[Y_{i}(0) | D_{i}=0\right]$.
+  + But under conditional independence and common support, we can get from $\tau^{S O O}$ to $\tau^{A T E}$
+  
+* To use selection-on-observables approach, we would need dataset at the household level, treatment status, pre-treatment observable chracteristics, post-treatment characteristics, post-treatment outcome.
+
+
+
+## 2. 
+
+* Since we cannot observe everything we need, I would try to observe some (quasi) random variation in $D_{i}$, and turn to natural experiments research design instead. 
+  + In order to recover the causal effect of $D_{i}$, we should have nothing in the error term that is unobserved piece that is correlated with treatment or selection into treatment. 
+  + It is important to make sure that we have modeled everything in the model, so there is nothing left in the error term.
+  + In other words, $E\left[\varepsilon_{i} | D_{i}\right]=0 \Longleftrightarrow \operatorname{Cov}\left(D_{i}, \varepsilon_{i}\right)=0$
+
+
+
+
+## 3. 
+
+* We could use "distance from the electric utilities" as an instrumental variable to evaluate the effect of power outage hours on kW of solar PV installed.
+  + Proposed instrument should be a good one, because this affects outcome only through treatment. In other words, instrument cannot affect outcome through any other channel, and therefore can be "excluded" from a regression of $Y_{i}$ on $D_{i}$.
+
+* However, I have some concerns about the abiilty to estimate the treatment effect using propsed instrument.
+  + Because IV is throwing out variation, the standard errors will be bigger than OLS standard erros.
+  + Also, the exclusion restiction is fundamentally untestable so I will need to bear strong assumption to believe that proposed IV works properly.
+
+
+
+## 4. 
+
+* Since California utilities randomly cut power for different lengths of time to different households in the small pilot program, at least for this small pilot program, treatment should being as good as random. 
+  + So we can believe that an additional hour of electricity outage has same effect on KW of PV adoption and we can estimate this by linear regression model.
+  + Thanks to random treatment assignment, we can estimate the impacts as: $\hat{\tau}^{A T E}=\overline{Y(1)}-\overline{Y(0)}$.
+  + Using linear regression model $Y_{i}=\alpha+\tau D_{i}+\varepsilon_{i}$ get $\hat{\tau}$ and it's same as $\hat{\tau}^{A T E}$.
+
+\pagebreak
+  
+## 5. 
+
+* A unit increase in utility outage hours increases installed_pv_contractors by 0.0001115. 
+  + Please note that $\hat{\tau}$ is no statistically significant. However, I still report the coefficient here. 
+  + But it is still good practice to suspect any laten problems such as noise or small sample size.
+
+```{r}
+summary(lm5 <- lm(installed_pv_contractors ~ utility_outage_hours, data = cal_raw))
+```
+
+\pagebreak
+
+## 6. 
+
+```{r message=FALSE, warning = FALSE, echo=FALSE}
+ggplot(data = cal_raw) +
+  geom_point(aes(x = installed_pv_contractors, y= installed_pv_backchecks)) +
+  labs(title = "Back-checks vs. contractors’ estimates")
+```
+
+* 203 observations which were 0 for installed_pv_contractors were found to be positive values when backchecked.
+  + Assuming backcheck data has no measurement error, installed_pv_contractor is likely to be cause a problem for the analysis. 
+  + This is measurement error is more like non-classical measurement error in Di, which is likely to cause attenuation bias.
+  + Because, a second report as an instrument does not provide consistent estimates of beta under non-classical measurement error. Specifically, if the mismeasurement error covaries with D, in the denominator, Z and the mismeasurement will covary through D.
+
+* Estimate is smaller using backcheck data. 
+  + A unit increase in utility outage hours increases installed_pv_backchecks by 6.902e-05. 
+  + However, still $\hat{\tau}$ is no statistically significant.
+  + Estimate is smaller than the previous equation, because the measurement error correlated with treatment, resulted in OVB. 
+
+```{r}
+summary(lm5 <- lm(installed_pv_contractors ~ utility_outage_hours, data = cal_raw))
+summary(lm6 <- lm(installed_pv_backchecks ~ utility_outage_hours, data = cal_raw))
+```
+
+\pagebreak
+
+## 7. 
+
+```{r message=FALSE, warning = FALSE, echo=FALSE}
+ggplot(data = cal_raw) +
+  geom_point(aes(x = installed_pv_contractors_v2, y= installed_pv_backchecks)) +
+  labs(title = "Back-checks vs. new measurement")
+```
+
+* Installed_pv_contracts_v2 is same or bigger than installed_pv_backchecks by constant differences. 
+  + Measurement error in this contractor reports is not likely to cause a problem, becuase measurement error in Y is fine.
+  + Because measurement error in Y allow us this assumption: $\operatorname{Cov}\left(\gamma_{i}, \varepsilon_{i}\right)=0$ and $\operatorname{Cov}\left(\gamma_{i}, D_{i}\right)=0$
+  + With the assumption stated above, even if we don't observe $Y_{i},$ but rather observe $\tilde{Y}_{i}=Y_{i}+\gamma_{i}$, we can recover true effect by estimating $\hat{\tau}$. 
+
+
+* Estimate is almost same(slightly small) using new measurement. 
+  + A unit increase in utility outage hours increases installed_pv_contractors_v2 by 6.843e-05. 
+  + However, still $\hat{\tau}$ is no statistically significant.
+  + Estimate is almost same as using backcheck because like we are just moving observation little upward, this does should not change the real relationship. 
+
+```{r}
+summary(lm6 <- lm(installed_pv_backchecks ~ utility_outage_hours, data = cal_raw))
+summary(lm7 <- lm(installed_pv_contractors_v2 ~ utility_outage_hours, data = cal_raw))
+```
+
+\pagebreak
+
+## 8. 
+
+* iou == 1, the measurement error is going to be a problem for the analysis. Because the measurement error is more severe for selected treatment units, in other words, the measurement error is not random and correlated with treatment status.
+  + We want to estimate $Y_{i}=\alpha+\tau D_{i}+\varepsilon_{i}$.
+  + We don't observe $D_{i},$ but rather $\tilde{D}_{i}=D_{i}+\gamma_{i}$
+  + $\hat{\tau}=\tau\left(\frac{\operatorname{Var}\left(D_{i}\right)}{\operatorname{Var}\left(D_{i}\right)+\operatorname{Var}\left(\gamma_{i}\right)}\right)$
+  + We get attenuation biase.
+* iou == 2, the measurement error is not going to be a problem for the analysis. Because the measurement error is random. 
+  + We don't observe $Y_{i},$ but rather $\tilde{Y}_{i}=Y_{i}+\gamma_{i}$
+  + If we run, $\tilde{Y}_{i}=\alpha+\tau D_{i}+\varepsilon_{i}$, we get $\hat{\tau}=\tau$
+  + With assumption: $\operatorname{Cov}\left(\gamma_{i}, \varepsilon_{i}\right)=0$ and $\operatorname{Cov}\left(\gamma_{i}, D_{i}\right)=0$
+
+* iou == 1, 
+  + A unit increase in utility outage hours decreases installed_pv_contractors_v2 by 6.526e-05. 
+  + Coefficent is not statistically significant for utility_outage_hours.
+
+* iou == 2,
+  + A unit increase in utility outage hours increases installed_pv_contractors_v2 by 0.002736
+  + Coefficent is not statistically significant for utility_outage_hours.
+
+```{r, include=FALSE}
+iou_1 <- cal_raw %>% filter(iou == 1)
+iou_2 <- cal_raw %>% filter(iou ==2)
+```
+
+```{r}
+summary(lm8_iou_1 <- lm(installed_pv_contractors_v2 ~ utility_outage_hours, data = iou_1))
+
+summary(lm8_iou_2 <- lm(installed_pv_contractors_v2 ~ utility_outage_hours, data = iou_2))
+
+```
+
+\pagebreak
+
+## 9. 
+
+* I would use newly introduced data, survey_outage_hour to decompose into the true outage hours and an error term.
+  + In order for this to work, (1) treatment should be as good as random and (2) measurement error is not in our original error term.
+
+```{r}
+lm9 <- lm(utility_outage_hours ~ survey_outage_hours, data = cal_raw)
+summary(lm(installed_pv_contractors_v2 ~ lm9$fitted.values, data = cal_raw))
+```
+* Compare to the estimate in (8), the effect is bigger and statistically significant. 
+  + A unit increase in utility outage hours increases installed_pv_contractors_v2 by 0.003579
+  + And now our coefficent is statistically significant.
+
+* This estimate I've just recovered from #9 would be the estimate that I would like to send to CALBEARS as final analysis result.
+

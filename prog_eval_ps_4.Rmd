@@ -1,0 +1,423 @@
+---
+title: "Program Evaluation Problem Set 4"
+author: "Hye-Min Jung"
+date: "5/28/2020"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+#tinytex::install_tinytex()
+library(tinytex)
+library(latex2exp)
+library(rmutil)
+library(stargazer)
+library(plm)
+library(lmtest)
+library(lfe)
+```
+
+```{r, include=FALSE}
+# EDA
+pol_raw <- read.csv("ps_4_data.csv")
+dim(pol_raw)
+head(pol_raw)
+summary(pol_raw)
+
+pol_raw %>%
+  group_by(year) %>%
+  count()
+
+pol_raw %>%
+  group_by(municipality_id) %>%
+  count()
+
+pol_raw %>%
+  group_by(air_quality_regulation_year) %>%
+  count()
+
+pol_raw %>%
+  group_by(municipality_id) %>%
+  summarise(ave_par_matter = mean(particulate_matter),
+            min_par_matter = min(particulate_matter),
+            max_par_matter = max(particulate_matter))
+
+pol_raw %>%
+  group_by(year) %>%
+  summarise(ave_par_matter = mean(particulate_matter),
+            min_par_matter = min(particulate_matter),
+            max_par_matter = max(particulate_matter))
+```
+
+## 1. 
+
+* **In a completely unconstrained world, where I could do anything with almighty ability, I would run randomized controlled trial, to estimate "the impact of provincial(municipal) air quality regualtions on local particulate matter(PM 2.5)". Because under the randomized controlled trial, we can easily estimate the impact of treatment. ATE is simply the difference in means between treated and control provincial's particulate matter in the air.**
+
+* Define: $D_{i} \in\{0,1\}$ as the regulation indicator for municipal i
+  + when municipal i is treated, $D_{i}=1$
+  + when municipal i is not treated, $D_{i}=0$
+* Define: $Y_{i}\left(D_{i}\right)$ as the local particulate matter as a function of $D_{i}$ 
+  + when municipal i is treated, we observe local particulate matter$Y(1)$
+  + when municipal i is not treated, we observe local particulate matter $Y(0)$
+* Then, the impact of provincial(municipal) air quality regualtions on local particulate matter(PM 2.5) is: $\tau_{i}=Y_{i}(1)-Y_{i}(0)$
+
+* To put it simply in words, impact of treatment is a parameter that measures 'What is the outcome of air quality regualtion, compared to the outcomes that we would have observed without the the regulation?' 
+  + Impacts is 'changes in outcomes caused by the regulation' whereas, outcomes is 'things that we could “potentially” observe'. 
+  + We need to consider all possible outcomes we could have observed, spans both actual and alternative programs, to explain the impact of treatment. 
+
+* To perform the analysis, I would need dataset at the municipal level, treatment status, pre-treatment observable chracteristics, post-treatment characteristics, post-treatment outcome.
+
+\pagebreak
+
+## 2. 
+
+* If you compare the average differences in air quality between municipalities with and without air quality regulations to get a sense of what these regulations do to air quality, you cannot avoid fundamental problem of causal inference due to selection bias.
+
+* Selection bias ex1
+  + Treated(regulated) municipals rely heavily on manufacturing industry(factory), whereas untreated municipals are rural areas that does not have any pollution.
+  + If you compare those two groups and estimate the impact of the regulation, you might end up with underestimated policy impact.
+
+* Selection bias ex2
+  + Treated municipal residents care more about the air quality(highly educated), so residents forced the policy to be implemented and also follows the guideline very well. On the other hand untreated municipal residents don't care about the air quality at all and don't follow the guidelines. 
+  + In this scenario, you might end up with overestimated policy impact.
+
+* Selection bias ex3
+  + Treated municipal urbanized cities with 99% of oil-engine cars, whereas untreated municipals are the areas where the 80% of residents has adopted eco-friendly electric car. 
+  + In this case, you might end up with underestimated policy impact.
+
+\pagebreak
+
+## 3.
+
+* We can leverage data for identification by comparing i in t vs. i in t-1 and by doing so, it becomes possible to get rid of the selection bias. 
+  + In this formulation, i serves as a control for itself. 
+  + As 'post-treatment i' is much more similar to 'i before treatment' than comparing to unit j, it will be less likely to have changes on unit i, which can cause unit i not to select into treatment yesterday, but to select in today for unit i.
+  + Therefore, we can get rid of the selection bias by comparing i of t-1 to i to t. (Where as in cross-sectional data, there are many cases that units can be selected into treatment.)
+
+* With this within unit comparison, we can estimate: 
+  + $\hat{\tau}^{T S}=Y_{i, t=1}-Y_{i, t=0}$
+  + In words, this is going to be the outcome difference in before 2004 regualtion and after 2004 regulation.
+
+* In order for $\hat{\tau}^{T S}=Y_{i, t=1}-Y_{i, t=0}$ to recover the causal effect, we need follwing identifying assumption:
+  + $\delta=0$ or $V_{i, t=1}=V_{i, t=0}\left(=V_{i}\right)$ from $\hat{\tau}^{T S}=Y_{i, t=1}-Y_{i, t=0}=\tau+\delta\left(V_{i, t=1}-V_{i, t=0}\right)$, where $V_{i t}$ is a set of observed and unobserved time-varying characteristics.
+
+* If any time-varying observed or unobserved chraceteristics(variables) matter for the outcome, that will create bias in $\hat{\tau}^{T S}$ and make you to worry, because we will confound the treand with $\tau$ and we will not be able to eliminate the trend with one time series. 
+
+* ex 1: 
+  + Suppose 2004, if the global pandemic outbreak put vast majority of factories into shut down, contributing to significant amount of reduction in particulate matter, we cannot separate the regulation effect from the global pandemic effect.
+
+* ex 2: 
+  + Suppose 2004, if the destructive and unstoppable wildfire occurres in China and spread throughout the country emitting significant amount of particulate matter, then we cannot separate the regulation effect from the wildfire effect. 
+* ex 3: 
+  + Suppose 2004, if the extremely hazardous volcano erupts in China, emitting significant amount of particulate matter, then we cannot separate the regulation effect from the volcanic eruption effect.
+
+\pagebreak
+
+## 4.
+
+* Being able to have data on municipalities that had never been imposed to regualations as a gauge of regulated municipalities's trend over time, we can reasonably guess over the missing counterfactual trend for treated unit, in which we can never observe in real world.
+
+* Differences-in-differences, $\hat{\tau}^{D D}=\hat{\tau}_{D_{i}=1}^{T S}-\hat{\tau}_{D_{j}=0}^{T S}$ is the estimator that I would like to estimate using this dataset.
+  + I will have 2 time series estimator and take the difference between two. More specifically, I will compare the time series estimator for regulated municipalities to the time series estimator for unregulated municipalities.
+  + In other words, this estimator compars treated to untreated units over time.
+
+* Let, regulated units: $Y_{i t}=\tau D_{i t}+\beta X_{i}+\delta S_{t}$, never regulated units: $Y_{j t}=\beta X_{j}+\delta S_{t}$
+  + We have time-invariant characteristics $X_{i}$ and time-varying $S_{t}$
+  + $\hat{\tau}^{D D}=\left(Y_{i, t=1}-Y_{i, t=0}\right)-\left(Y_{j, t=1}-Y_{j, t=0}\right)=\tau\left(D_{i, t=1}-D_{i, t=0}\right)=\tau$
+
+* We can implement DD via the following regression: 
+  + $Y_{i}=\alpha+\tau Treat \times Post_{it} +\beta Treat_{i}+\delta Post_{t}+\varepsilon_{i t}$
+  + Running this regression yields $\hat{\tau}=\hat{\tau}^{D D}$
+
+* The identifying assumption of the DD is "parallel counterfactual trends".
+
+* The larger dataset, the panel data, would allow me to resolve the concern that I had with only time-series data. 
+  + Because using other units that never got treated, we can make a guess on the missing counterfactual.
+  + If there is no change in outcome is for never regulated municipalities in pre and post regulation, it will be reasonable to extrapolate same treand for regulated municipalities too.
+  
+* Remaining concern with panel data still remains with the paralle trends assumption.
+  + If the treated and untreated units are on different trajectory to begin with, comparing treated units pre and post treatment and untreated units pre and post will mis-adjustment and resulting in bad approximation of the counterfactual. 
+
+* ex 1. 
+  + Suppose, never regulated municipalities were well-educated and conscious about the air quality, so had decreasing PM 2.5 trend to begin with, whereas regulated municipalities had stable PM 2.5. In this case, the average PM 2.5 would be smaller for the post period for never regulated municipalities and in response, we will mis-adjust the counterfactual for regualted municipalities. 
+
+* ex 2. 
+  + Suppose, regulated municipalities were well-educated and conscious about the air quality, where as never regualted municipalities are careless about the air quality. So the trends for regulated and unregualted are different to begin with. We will have the similar mis-adjustment and bad approximation for the counterfactual in this case too.
+
+\pagebreak
+
+## 5. 
+
+* Using data on the universe of their consumers from 2003 to 2007, I would estimate fixed effect to know the impact of regulation on air quality by:
+  + Controlling for individual-specific time-invariant effects and common time-period-speicific effects that might be correlated with $D_{i t}$.
+  + In math, I would like to control for $\alpha_{i}$ and $\delta_{t}$, that might be correlated with $D_{i t}$. (In the basic panel data regression $Y_{i t}=X_{i t} \beta+\tau D_{i t}+\varepsilon_{i t}$, $\alpha_{i}$ and $\delta_{t}$ is in the error term.)
+  + $Y_{i t}=X_{i t} \beta+\tau D_{i t}+\alpha_{i}+\delta_{t}+\nu_{i t}$
+
+\pagebreak
+
+
+## 6.
+
+* Simple comparison result:
+  + PM 2.5 is 24.44856 lower in average for 2004 regulated municipalities compare to the never regulated municipalities.
+
+* Regression result for time-series analysis: 
+  + PM 2.5 is 21.470 lower in average for municipalities after the regulation in 2004 compare to PM 2.5 level before the regulation.
+
+* Regression result is slightly different from the simple comparison. The magnitude is bigger when calculating with simple comparison.
+
+
+```{r echo=FALSE}
+#simple comparison of average
+regulated <- pol_raw %>% filter(!is.na(air_quality_regulation_year))
+regulated_NA <- pol_raw %>% filter(is.na(air_quality_regulation_year))
+mean(regulated$particulate_matter)-mean(regulated_NA$particulate_matter)
+
+#regression for regulated 2004 time-series analysis
+regulated_2004 <- pol_raw %>% filter(air_quality_regulation_year == 2004) 
+regulated_2004$post <- ifelse(regulated_2004$year == 2003, 0, 1)
+regulated_2004$treat <- ifelse(regulated_2004$air_quality_regulation_year == 2004, 1, 0)
+
+reg6<- plm(particulate_matter ~ post,
+             data = regulated_2004,
+             model = "within",
+             effect ='individual',
+             index = c('municipality_id'))
+
+stargazer(reg6, type = 'text')
+
+```
+
+
+```{r echo=FALSE}
+regulated_2004 %>%
+  group_by(year) %>%
+  ggplot() +
+  geom_line(aes(x = year, y = particulate_matter)) +
+  geom_vline(xintercept = 2004, color = "red") + 
+  scale_x_continuous(breaks=seq(2003, 2012, 1)) + 
+  labs(title = "Particular matter for 2004 regulated municipalities",
+       y = "Particulate matter")
+
+pol_raw %>%
+  filter(air_quality_regulation_year == 2004) %>%
+  group_by(year) %>%
+  summarise(ave_part_mat = mean(particulate_matter)) %>%
+  ggplot() +
+  geom_line(aes(x = year, y = ave_part_mat)) +
+  geom_vline(xintercept = 2004, color = "red") + 
+  scale_x_continuous(breaks=seq(2003, 2012, 1)) + 
+  labs(title = "Average particular matter for 2004 regulated municipalities",
+       y = "average particulate matter")
+```
+
+* The average PM 2.5 decreases after the regulation, but it increases in 2005 and it continues to have fluctuating trajectory.
+
+* This figure suggests that my estimate might be negative due to the big short term effect reducing PM 2.5 but does due to long lasting effect that reduces PM 2.5.
+
+\pagebreak
+
+## 7.
+
+```{r echo=FALSE}
+pol_raw %>%
+  filter(is.na(air_quality_regulation_year)) %>%
+  group_by(year) %>%
+  summarise(ave_part_mat = mean(particulate_matter)) %>%
+  ggplot() +
+  geom_line(aes(x = year, y = ave_part_mat)) + 
+  scale_x_continuous(breaks=seq(2003, 2012, 1)) + 
+  labs(title = "Average particular matter for never-regulating municipalities",
+       y = "average particular matter")
+```
+
+* As never-regulating municipalities before 2004 has parallel trend with 2004 regulating municipalities, it is reasonable to assume 'untreated trend=counterfactual trend', using it as a control group for the 2004 regulators.
+
+```{r echo=FALSE}
+pol_raw %>%
+  filter(air_quality_regulation_year == 2006) %>%
+  group_by(year) %>%
+  summarise(ave_part_mat = mean(particulate_matter)) %>%
+  ggplot() +
+  geom_line(aes(x = year, y = ave_part_mat)) + 
+  scale_x_continuous(breaks=seq(2003, 2012, 1)) + 
+  labs(title = "Average particular matter for 2006 regulated municipalities",
+       y = "average particular matter")
+```
+
+* However, never-regulating municipalities does not have parallel trend with 2006 regulating municipalities, before 2006, it is unreasonable to assume 'untreated trend=counterfactual trend', and it would be bad idea to use it as a control group for the 2006 regulators.
+
+
+\pagebreak
+
+## 8. 
+
+* Simple difference in mean and regression both yield same result: 
+  + PM 2.5 is 124.277 higher in average for 2006 regulated municipalities compare to the never regulated municipalities.
+  
+* Fixed effects controling for common time shocks and time-invariant municipalitiy characteristics yield different result: 
+  + PM 2.5 is 67.469 higher in average for 2006 regulated municipalities compare to the never regulated municipalities.
+  
+* Q8 estimate is significantly different from Q6 estimate.
+  + Q8: PM 2.5 is 124.277 or 67.469 higher in average for 2006 regulated municipalities compare to the never regulated municipalities.
+  + Q6: PM 2.5 is 24.44856 lower in average for regulated municipalities compare to the never regulated municipalities.
+  + As we have discovered in Q7 plots, this significant difference comes from the unparallel pre-trend of 2006 regulated municipalities compare to the control group.  
+  + Because 2006 regulator and control were trending differently to begin with, comparing those two groups of municipalities gives the bad approximation. 
+
+
+```{r echo=FALSE}
+regulated_2006 <- pol_raw %>% filter(air_quality_regulation_year == 2006) 
+
+#Simple difference in mean
+mean(regulated_2006$particulate_matter)-mean(regulated_NA$particulate_matter)
+
+#Simple regression
+regulated_NA_2006 <- rbind(regulated_NA, regulated_2006)
+regulated_NA_2006$treat <- ifelse(is.na(regulated_NA_2006$air_quality_regulation_year), 0, 1)
+regulated_NA_2006$post <- ifelse(regulated_NA_2006$year == 2003 | 
+                                   regulated_NA_2006$year == 2004 | 
+                                   regulated_NA_2006$year == 2005, 0, 1)
+
+reg8.1 <- lm(particulate_matter ~ treat, data = regulated_NA_2006)
+stargazer(reg8.1, type = 'text')
+```
+```{r echo=FALSE}
+#Fixed effects to control for common time shocks and time-invariant municipality characteristics
+reg8.2 <- felm(particulate_matter ~ (treat * post) | year + municipality_id | 0 | 
+                 year + municipality_id,
+               data = regulated_NA_2006)
+stargazer(reg8.2, type = 'text')
+```
+
+
+## 9.
+
+```{r echo=FALSE}
+data.means <- pol_raw %>%
+  filter(air_quality_regulation_year > 2002) %>%
+  group_by(year, air_quality_regulation_year) %>%
+  summarize(ave_part_mat = mean(particulate_matter))
+
+ggplot(data.means, aes(x = year, y = ave_part_mat, linetype = factor(air_quality_regulation_year))) + 
+  geom_line() +
+  theme_bw() + 
+  scale_x_continuous(breaks=seq(2003, 2012, 1)) + 
+  labs(title = "Average particular matter by regulation year",
+       y = "average particular matter", 
+       fill = "Regulation year") 
+```
+```{r echo=FALSE}
+regulated_drop <- 
+  pol_raw %>%
+  filter(air_quality_regulation_year != 2006) 
+regulated_drop$post <- ifelse(regulated_drop$year == 2003, 0, 1)
+regulated_drop$treat <- ifelse(regulated_drop$air_quality_regulation_year == 2004, 1, 0)
+
+regulated_drop$treatment <- 
+  ifelse(regulated_drop$year >= regulated_drop$air_quality_regulation_year, 1, 0)
+
+#Fixed effects to control for common time shocks and time-invariant municipality characteristics
+
+reg9.1 <- plm(particulate_matter ~ treatment,
+  data = regulated_drop, 
+  model = "within", 
+  effect = "twoway",
+  index = c("municipality_id", "year")
+)
+coeftest(reg9.1, vcov=vcovHC(reg9.1, type="HC0", cluster="group"))
+```
+
+* I dropped 2006 regulated dataset, because of the unparallel pre-trend.
+  + If we have different trajectory to begin with, we would be overestimate or underestimate the treatment effect, because we have falsely assumed the counterfactual.
+
+* After dropping 2006: 
+  + PM 2.5 is 14.83518 lower in average for regulated municipalities compare to the never regulated municipalities.
+
+
+```{r include=FALSE}
+# Event study
+regulated_drop$delta_0 <- 
+  ifelse(regulated_drop$year - regulated_drop$air_quality_regulation_year == 0, 1, 0)
+
+regulated_drop$delta_before_1 <- 
+  ifelse(regulated_drop$year - regulated_drop$air_quality_regulation_year == -1, 1, 0)
+
+regulated_drop$delta_before_2 <- 
+  ifelse(regulated_drop$year - regulated_drop$air_quality_regulation_year == -2, 1, 0)
+
+regulated_drop$delta_before_3 <- 
+  ifelse(regulated_drop$year - regulated_drop$air_quality_regulation_year == -3, 1, 0)
+
+regulated_drop$delta_before_4 <- 
+  ifelse(regulated_drop$year - regulated_drop$air_quality_regulation_year == -4, 1, 0)
+
+regulated_drop$delta_before_5 <- 
+  ifelse(regulated_drop$year - regulated_drop$air_quality_regulation_year == -5, 1, 0)
+
+
+regulated_drop$delta_after_1 <- 
+  ifelse(regulated_drop$year - regulated_drop$air_quality_regulation_year == 1, 1, 0)
+
+regulated_drop$delta_after_2 <- 
+  ifelse(regulated_drop$year - regulated_drop$air_quality_regulation_year == 2, 1, 0)
+
+regulated_drop$delta_after_3 <- 
+  ifelse(regulated_drop$year - regulated_drop$air_quality_regulation_year == 3, 1, 0)
+
+regulated_drop$delta_after_4 <- 
+  ifelse(regulated_drop$year - regulated_drop$air_quality_regulation_year == 4, 1, 0)
+
+regulated_drop$delta_after_5 <- 
+  ifelse(regulated_drop$year - regulated_drop$air_quality_regulation_year == 5, 1, 0)
+```
+
+```{r echo=FALSE}
+reg9.2 <- 
+  plm(particulate_matter ~ delta_0 + 
+         delta_before_2 + delta_before_3 + delta_before_4 +
+      delta_after_1 + delta_after_2 + delta_after_3 + delta_after_4 + delta_after_5,
+  data = regulated_drop, 
+  model = "within", 
+  effect = "twoway",
+  index = c("municipality_id", "year")
+)
+coeftest(reg9.2, vcov=vcovHC(reg9.2, type="HC0", cluster="group"))
+```
+
+* Treatment effect do vary over time. The effect of regulation is the most effective on the regulated year and it diminishes in magnitude of the effect as time goes by.
+
+## 10.
+
+* Preferred estimating method for PROGRAMEVAL case is event study, to allow differential effects over time. 
+  + With event study we can line up treatment at the same time for everyunit, still use fixed effects to soak up confounders, get a partial test of the identifying assumption.
+  
+* Remaining shortcmoing with event study is that we still have threats to identification.
+  + Selection into treatment: Treated and untreated individuals on different trends.
+  + Coincident treatments: If a treated unit does two things at once, we can't cleanly estimate treatment.
+  + Anticipatory effects and the Ashenfelter dip.
+  
+
+* I would like to recommend strongly promote air quality regulations, refering to the below event study results.
+  + Although the effect of regulation is most effective on the regulated year and it diminishes as time goes by, but still, it is effective. 
+
+* Regulated year effect: 
+  + PM 2.5 is 11.92232 lower in average for regulated municipalities compare to the never regulated municipalities.
+* Regulated year+1 effect: 
+  + PM 2.5 is 9.61189 lower in average for regulated municipalities compare to the never regulated municipalities.
+* Regulated year+2 effect: 
+  + PM 2.5 is 8.54454 lower in average for regulated municipalities compare to the never regulated municipalities.
+* Regulated year+3 effect: 
+  + PM 2.5 is 6.52717 lower in average for regulated municipalities compare to the never regulated municipalities.
+* Regulated year+4 effect: 
+  + PM 2.5 is 5.10026 lower in average for regulated municipalities compare to the never regulated municipalities.
+* Regulated year+5 effect: 
+  + PM 2.5 is 3.61716 lower in average for regulated municipalities compare to the never regulated municipalities.

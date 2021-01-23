@@ -1,0 +1,285 @@
+---
+title: "Program Evaluation Problem Set 1"
+author: "Hye-Min Jung"
+date: "4/23/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+#tinytex::install_tinytex()
+library(tinytex)
+library(latex2exp)
+library(rmutil)
+```
+
+```{r, include=FALSE}
+incln_raw <- read.csv("ps1_data.csv")
+dim(incln_raw)
+head(incln_raw)
+#summary(incln_raw)
+```
+
+```{r, include=FALSE}
+# trt <- incln %>% 
+#   filter(burlig_trt == 1)
+# 
+# trt %>%
+#   summarise(wage = mean(baseline_wages),
+#             sale = mean(baseline_sales),
+#             employee = mean(baseline_employees),
+#             owner_female = mean(baseline_owner_female))
+# 
+# ctr <- incln %>%
+#   filter(burlig_trt == 0)
+```
+
+## 1. 
+* Define: $D_{i} \in\{0,1\}$ as the treatment(taking loan) indicator for firm i
+  + when firm i is treated, $D_{i}=1$
+  + when firm i is not treated, $D_{i}=0$
+* Define: $Y_{i}\left(D_{i}\right)$ as the employee wages as a function of $D_{i}$ 
+  + when firm i is treated, we observe employee wage $Y(1)$
+  + when firm i is not treated, we observe employee wage $Y(0)$
+* Then, the impact of treatment(taking loan) for employee wage is: $\tau_{i}=Y_{i}(1)-Y_{i}(0)$
+
+* To put it simply in words, impact of treatment is a parameter that measures 'What is the outcome of loan program, compared to the outcomes that we would have observed without the loan program?' 
+  + Impacts is 'changes in outcomes caused by the policy' whereas, outcomes is 'things that we could “potentially” observe'. 
+  + We need to consider all possible outcomes we could have observed, spans both actual and alternative programs, to explain the impact of treatment. 
+
+## 2.
+* But, unfortunately, we only ever get to observe $Y_{i}(1)$ or $Y_{i}(0)$, but not both. Because a firm cannot be in the two states of the world (taking the loan at the same time not taking the loan) simultaneously. This is called fundamental problem of causal inference. To put it simply, it is impossible to observe and estimate individual-specific treatment impact $\tau_{i}$.
+
+## 3. 
+* If you compare the average wages paid across the two sets of firms, this will be measuring $\tau^{N}=\overline{Y(1)}-\overline{Y(0)}$, which is called naive estimator. This is different from ATE that measure potential outcomes, whereas naive estimator measuring observed outcomes.
++ When you use naive estimator to estimate ATE, you are assuming that the conditional expectation of Y is the same as the unconditional expectation of Y, which is very unlikely in the real world.
+* There are many circumstances that involves selection problem, which makes the naive estimator different from the ATE:
+  + For instance, suppose, among all small business firms, only the competitive firms with high competency human capital, and high likelihood of fast-growth knows the loan, apply and gets the loan. Then the naive estimator is not going to work. Because, under this scenario, the assumption is broke, with treated and untreated firms being different, even under the absence of the loan program.
+* Under the scenario with this type of selection problem, we cannot distinguish between effects of the loan and the competency of the firm from our estimate, resulting naive estimator to be different from ATE.
+
+## 4.
+* $\tau^{A T T}=E\left[\tau_{i} | D_{i}=1\right]=E\left[Y_{i}(1)-Y_{i}(0) | D_{i}=1\right]$$=E\left[Y_{i}(1) | D_{i}=1\right]-E\left[Y_{i}(0) | D_{i}=1\right]$
+* when: $D_{i} \in\{0,1\}$ as the treatment(taking loan) indicator for firm i
+  + when firm i is treated, $D_{i}=1$
+  + when firm i is not treated, $D_{i}=0$
+* when: $Y_{i}\left(D_{i}\right)$ as the employee wages as a function of $D_{i}$ 
+  + when firm i is treated, we observe employee wage $Y(1)$
+  + when firm i is not treated, we observe employee wage $Y(0)$  
+* ATT is considering treatment impact particularly for treated firms but our data will not allow to estimate ATT, because we don't have enought data corresponds to the necessary components of the ATT. 
+  + We do observe $E\left[Y_{i}(1) | D_{i}=1\right]$, which is endline_wages on treated units. 
+  + However, we still don't observe $E\left[Y_{i}(0) | D_{i}=1\right]$, which is the data that you need to observe in order to estimate ATT. 
+  + This problem arise again, due to the nature that a firm cannot be in the two states of the world (taking the loan at the same time not taking the loan) simultaneously in the real world.
+
+## 5. 
+* Below, is the balance test table created to check the proper random assignment, by running 
+  + $Y_{i}^{\text {baseline }}=\alpha+\tau D_{i}+\nu_{i}$
+
+<Balance Test Table (Q5) : Comparison of treatment to control group>    
+
+| Pre-treatment     | (1) Treated firms | (2) Control firms | (1)-(2) Difference | P-value |
+| -------------     |:-----------------:|:-----------------:|:------------------:|:-------:|   
+| wages             | -6.997201e+13     | 9.367e+04         | -6.997e+13         | 0.318   |
+| sales             | 19487525          | 19495478          | -7953              | 0.352   |
+| no. workers       | 29.97868          | 30.0259           | -0.0472            | 0.739   |
+| owerner gender    | 0.3698521         | 0.360544          | 0.009308           | 0.494   |
+
+* Control and treatment group are similar/not different, given that the none of the coefficients for treatment variable were statistically significant in the balance test. 
+* However, I am concerned with the counterintuitively small mean for baseline_wages. This suggests further investigation on baseline_wages observation is necessary.
+```{r, include=FALSE}
+# summary(lm(baseline_wages ~ burlig_trt, data = incln_raw)) #intercept: control mean, coefficient: mean difference
+# summary(lm(baseline_sales ~ burlig_trt, data = incln_raw))
+# summary(lm(baseline_employees ~ burlig_trt, data = incln_raw))
+# summary(lm(baseline_owner_female ~ burlig_trt, data = incln_raw))
+# incln_raw %>%
+#   summarise(w = mean(baseline_wages),
+#             s = mean(baseline_sales),
+#             n = mean(baseline_employees),
+#             o = mean(baseline_owner_female))
+
+# sum(lm(baseline_wages ~ burlig_trt, data = incln_raw)$coeff[1]+lm(baseline_wages ~ burlig_trt, data = incln_raw)$coeff[2])
+# sum(lm(baseline_sales ~ burlig_trt, data = incln_raw)$coeff[1]+lm(baseline_sales ~ burlig_trt, data = incln_raw)$coeff[2])
+# sum(lm(baseline_employees ~ burlig_trt, data = incln_raw)$coeff[1]+lm(baseline_employees ~ burlig_trt, data = incln_raw)$coeff[2])
+# sum(lm(baseline_owner_female ~ burlig_trt, data = incln_raw)$coeff[1]+lm(baseline_owner_female ~ burlig_trt, data = incln_raw)$coeff[2])
+
+```
+
+## 6. 
++ Further investigation : histogram of wages for treated and control firms is extremely left-skewed due to 1 observation. This historgram suggests the existence of the potential erroneously recorded observation(-1.75e+17). So, I decided to remove this observation from the data frame and redo the balance test.  
+  
+  
+```{r}
+ggplot(data = incln_raw, aes(x=baseline_wages)) + 
+  geom_histogram()
+```
+  
+  
++ Below is the re-done balance test result by regressing $Y_{i}^{\text {baseline }}=\alpha+\tau D_{i}+\nu_{i}$  
++ This new table implies that the randomization assignment was done properly, since none of the coefficients were statistically significant in the new balance test.   
++ However, in order to be able to estimate the causal effect of burlig_trt, we should assume that there is not selection problem. This requires unobservables not included in our data to be same for treated and untreated units, as well as the observed charateristics.
+```{r, include=FALSE}
+incln <- incln_raw %>% 
+  filter(baseline_wages >= 0)
+# summary(lm(baseline_wages ~ burlig_trt, data = incln)) #intercept: control mean, coefficient: mean difference
+# summary(lm(baseline_sales ~ burlig_trt, data = incln))
+# summary(lm(baseline_employees ~ burlig_trt, data = incln))
+# summary(lm(baseline_owner_female ~ burlig_trt, data = incln))
+# incln %>%
+#   summarise(w = mean(baseline_wages),
+#             s = mean(baseline_sales),
+#             n = mean(baseline_employees),
+#             o = mean(baseline_owner_female))
+
+# sum(lm(baseline_wages ~ burlig_trt, data = incln)$coeff[1]+lm(baseline_wages ~ burlig_trt, data = incln)$coeff[2])
+# sum(lm(baseline_sales ~ burlig_trt, data = incln)$coeff[1]+lm(baseline_sales ~ burlig_trt, data = incln)$coeff[2])
+# sum(lm(baseline_employees ~ burlig_trt, data = incln)$coeff[1]+lm(baseline_employees ~ burlig_trt, data = incln)$coeff[2])
+# sum(lm(baseline_owner_female ~ burlig_trt, data = incln)$coeff[1]+lm(baseline_owner_female ~ burlig_trt, data = incln)$coeff[2])
+```
+  
+  
+<Balance Test Table (Q6) : Comparison of treatment to control group>    
+
+| variable     | (1) Treated firms | (2) Control firms | (1)-(2) Difference | P-value |
+| -------------|:-----------------:|:-----------------:|:------------------:|:-------:|   
+| wages        | 94883.41          | 93669             | 1214               | 0.631   |
+| sales        | 19487520          | 19495478          | -7958              | 0.352   |
+| #workers     | 29.97635          | 30.02588          | -0.04953           | 0.727   |
+| owner gender | 0.37              | 0.360544          | 0.009456           | 0.488   |
+
+  
+  
+## 7.
+```{r, include=FALSE}
+summary(lm(endline_wages ~ burlig_trt, data = incln)) #intercept: control mean, coefficient: mean difference
+summary(lm(endline_sales ~ burlig_trt, data = incln))
+summary(lm(endline_employees ~ burlig_trt, data = incln))
+summary(lm(endline_owner_female ~ burlig_trt, data = incln))
+# incln %>%
+#    summarise(w = mean(endline_wages),
+#              s = mean(endline_sales),
+#              n = mean(endline_employees),
+#              o = mean(endline_owner_female))
+
+sum(lm(endline_wages ~ burlig_trt, data = incln)$coeff[1]+lm(endline_wages ~ burlig_trt, data = incln)$coeff[2])
+sum(lm(endline_sales ~ burlig_trt, data = incln)$coeff[1]+lm(endline_sales ~ burlig_trt, data = incln)$coeff[2])
+sum(lm(endline_employees ~ burlig_trt, data = incln)$coeff[1]+lm(endline_employees ~ burlig_trt, data = incln)$coeff[2])
+sum(lm(endline_owner_female ~ burlig_trt, data = incln)$coeff[1]+lm(endline_owner_female ~ burlig_trt, data = incln)$coeff[2])
+```
+
+* Under randomization: $\tau^{A T E}=E\left[Y_{i} | D_{i}=1\right]-E\left[Y_{i} | D_{i}=0\right]$. So we can easily estimate $\tau^{A T E}$ simply from the data by calculating difference in means between treated and control group, using burlig_trt as indicator variable for treatment status: $\hat{\tau}^{A T E}=\overline{Y(1)}-\overline{Y(0)}$
+* ATE estimations:
+  + $endlinewage_{i}=1054497+41639$ Treat $_{i}+\varepsilon_{i}$
+  + $endlinesales_{i}=19495678-5798$ Treat $_{i}+\varepsilon_{i}$
+  + $endlineno.workers_{i}=30.0259+1.2633$ Treat $_{i}+\varepsilon_{i}$
+  + $endlineownergender_{i}=0.360544+0.009456$ Treat $_{i}+\varepsilon_{i}$  
+  
+* Coefficients are interpreted as "treatment effects of the loan program": 
+  + Mean wage $41639 higher in the treated firm employees than the controlled firm employees.
+  + Sales $5798 lower in the treated firms than controlled firms
+  + Number of workers 1.2633 higher in treated firms than controlled firms.
+  + Number of female owner increased by 0.009456 among the treated firms than controlled firms. 
+
+* Results are statistically significant for wages, number of workers but insignicificant for sales and owner gender. Effect was larger relative to mean of control firms, only except for the sales.
+
+<Average Treatment Effects of the Loan program on Outcomes (assuming RCT worked)>
+
+| Outcome      | Treated firms | Control firms | Difference | P-value      | Significance | effect relative to mean of D=0 |
+| -------------|:-------------:|:-------------:|:----------:|:------------:|:------------:|:------------------------------:|   
+| wages        | 1096136       | 1054497       | 41639      | 2.23e-14     | significant  | Large                          |
+| sales        | 19489880      | 19495678      | -5798      | 0.504        | insignificant| Small                          |
+| no. workers  | 31.28915      | 30.0259       | 1.2633     | <2e-16       | significant  | Large                          |
+| owner Female | 0.37          | 0.360544      | 0.009456   | 0.488        | insignificant| Large                          |
+
+## 8.
+* Q8-1: Controlling for endline number of employees:
+  + Not a good idea. Post-treatment outcomes are bad controls, because if treatment affects these outcomes, you can get bias! 
+  + It is likely that the treatment will affect the outcomes as we hypothesized that the loans might raise the employment.
+* Interpretation:
+  + Q8-1 regression: $endlineno.workers_{i}=0+0$ Treat $_{i}+1 \mathbf{no.employee}^{\text {endline }}+\varepsilon_{i}$ 
+  + Silly interpretation we can derieve from controlling endline number of employee will be, endline number of workers equals to endline number of workers.
+  + Cf. It was impossible to run this regression in R, but instead running in STATA, the coefficient was 1 for $\mathbf{no.employee}^{\text {endline }}$ and coefficient for $Treat_{i}$ was 0. (R will automatically drop the problematic control and run the original regression formual stated in Q7.)
+
+* Difference from Q7 : 
+  + Cf. Q7 regression: $endlineno.workers_{i}=30.0259+1.2633$ Treat $_{i}+\varepsilon_{i}$
+  + This is because we controlled the post-treatment outcomes, which is also the outcome variable of the interest. So, holding the number of employees, the impact is rediculously different from Q7 regression.  
+
+```{r, include=FALSE}
+summary(lm(endline_employees ~ burlig_trt, data = incln))
+summary(lm(endline_employees ~ burlig_trt + endline_employees, data = incln))
+sum(lm(endline_employees ~ burlig_trt + endline_employees, data = incln)$coeff[1]+lm(endline_employees ~ burlig_trt + endline_employees, data = incln)$coeff[2])
+```
+
+```{r, include=FALSE}
+summary(lm(endline_employees ~ burlig_trt, data = incln))
+summary(lm(endline_employees ~ burlig_trt + baseline_employees, data = incln))
+sum(lm(endline_employees ~ burlig_trt + baseline_employees, data = incln)$coeff[1]+lm(endline_employees ~ burlig_trt + baseline_employees, data = incln)$coeff[2])
+```
+* Q8-2 Controlling for baseline number of employees:
+  + Good idea. By controlling for baseline variable, we get tighter standard error, being more precise on our estimate of treatment but not adding biase. It helps us to distinguish the effect of the treatment from the effects in the other stuff that is just in the population, even though we are still able to fully get the causal effect. This is reason why people still controlling for additional characteristics although there is nothing informative contain in the controls informative about the treatment effect
+estimate if self.
+* Interpretation:
+  + Q8-1 regression: $no.workers_{i}=0.021335+1.312765$ Treat $_{i}+0.999289\mathbf{no.employee}^{\text {baseline }}+\varepsilon_{i}$
+  + Number of workers increased by 1.312765 in treated firms than controlled firms, holding baseline number of workers fixed.  
+* Difference from Q7 : 
+  + Cf. Q7 regression: $no.workers_{i}=30.0259+1.2633$ Treat $_{i}+\varepsilon_{i}$
+  + Program impact has not changed much in magnitude nor direction, controlling for endline number of employees. 
+  + Theoretically, assuming RCT was done properly, controlling for baseline number of employees should not effect $\hat{\tau}$, because we’ve randomized away the differences in treatment and control.
+
+| outcome variable  | Treated firms     | Control firms     | Difference | Std. Error of $\hat{\tau}$ | P-value    |
+| ------------------|:-----------------:|:-----------------:|:----------:|:---------------------------|:----------:|  
+| no. workers (Q7)  | 31.28915          | 30.0259           | 1.2633     | 0.1430                     | <2e-16 *** |
+| no. workers (Q8-2)| 31.28915          | 0.021335          | 1.312765   | 0.019006                   | <2e-16 *** |
+
+* Q8-1, Q8-2 Difference:
+  + $\hat{\tau}$ is 0 in with endline control, $\hat{\tau}$ is almost same with baseline control. 
+  + This difference is driven by baseline vs. endline data used for the control. In RCT, one should never control for the post-treatment outcomes.
+  
+
+## 9. 
+* What did I estimated in Q7 was actually the effect of assignment to treatment, mathematically: $\tau^{\text {experiment }}=E\left[Y_{i} | R_{i}=1\right]-E\left[Y_{i} | R_{i}=0\right]$
+  + Defined under $R_{i} \in\{0,1\}$ as an indicator for being selected for treatment
+  + $R_{i}=1$ is people assigned to treatment
+  + $R_{i}=0$ is people assigned to control
+* This differs from estimating $\tau^{A T E}$ (calculated by $\hat{\tau}^{A T E}=\overline{Y(1)}-\overline{Y(0)}$). 
+  + Firms that were NOT supposed treated in a real world gets treated, messed up $\overline{Y(1)}$. 
+  + Also, firms that WERE supposed to be in a real world not gets treated messed up $\overline{Y(0)}$ 
+  + Because of this imperfect compliance, the design of RCT to get rid of selection problem is broken. So we can't just look at the $\overline{Y(1)}-\overline{Y(0)}$, like what I have calculated in Q7.
+
+## 10.
+* I can estimate $\tau^{T}=\quad \frac{\bar{Y}(R=1)-\bar{Y}(R=0)}{P_{R_{i}=1}^{D_{i}=1}-P_{R_{i}=0}^{D_{i}=1}}$, using two treatment variables. 
+  + (1) Regress $Y_{i}$ on $R_{i}$ to recover $\hat{\tau}^{I T T}$=41639
+  + (2) Regress $D_{i}$ on $R_{i}$ to recover $\hat{\pi}^{C}$=6.564e-01
+  + (3) $\hat{\tau}^{L A T E}=\frac{\hat{\tau}^{I T T}}{\hat{\pi}^{C}}$=41639/6.564e-01=63435.41
+* Interpretation: Mean wage $63435.41 higher in the treated firm employees than the controlled firm employees.
+* This is bigger impact compared to what I have estimated in Q7 (effect of assignment to treatment), due to non-compliers intensifying the effect of the program.
+
+* Cf. Or if I can assume that the assignment to treatment didn't affect the likelihood of non-compliance ($E\left[Y_{i} | R_{i}=1, D_{i}=0\right]=E\left[Y_{i} | R_{i}=0, D_{i}^{*}=0\right]$), I can estimate treatment effect for treated units $\tau^{T}=\frac{\tau^{\text {Experiment }}}{\operatorname{Pr}\left(D_{i}=1 | R_{i}=1\right)}$, 
+  + using $\operatorname{Pr}\left(D_{i}=1 | R_{i}=1\right)$ (% of treatment group units treated) estimated by 2 treatment variables. 
+  + $\operatorname{Pr}\left(D_{i}=1 | R_{i}=1\right)$=1641/2500=0.6564
+  + $\tau^{T}=\frac{\tau^{\text {Experiment }}}{\operatorname{Pr}\left(D_{i}=1 | R_{i}=1\right)}$=41639/0.6564=63435.41
+  + $\hat{\tau}^{T}$ calculated is actually equal to $\tau^{A T E}$, 
+  + This is because if there was absolute random assignment to non-compliers, there is no selection and $\tau^{T}=\tau^{A T T}=\tau^{A T E}$ 
+  + And becasue there is no heterogeneous effect, $\tau^{A T T}=\tau^{A T E}$ 
+  + Therefore, $\tau^{T}=\tau^{A T E}$. Without selection problem, we can estimate $\tau^{A T E}$ which we wanted to estimate in the first place by estimating $\tau^{T}$ instead.
+  
+```{r, include=FALSE}  
+summary(lm(endline_wages ~ burlig_trt, data = incln)) #41639
+summary(lm(burlig_trt_take ~ burlig_trt, data = incln)) #6.564e-01
+41639/6.564e-01
+```  
+  
+```{r, include=FALSE}
+print(1641/2500)
+print(41639/0.6564)
+incln %>%
+  count(burlig_trt == 1)
+
+incln %>%
+  filter(burlig_trt ==1 & burlig_trt_take ==1) %>%
+  summarise(n())
+```
